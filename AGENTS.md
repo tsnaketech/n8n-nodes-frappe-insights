@@ -16,7 +16,9 @@ et la **même couche transport**, chacun dans sa propre copie — un import ne f
 frontière d'un package npm. Voir [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — c'est le
 document à lire avant de toucher au credential ou à `GenericFunctions.ts`.
 
-Le dépôt n'est pas initialisé sous git (`git init` reste à faire si besoin).
+Le dépôt est sous git, `origin` pointant sur
+`github.com/tsnaketech/n8n-nodes-frappe-insights`. La CI et la publication npm se déclenchent
+depuis GitHub — voir `.github/workflows/`.
 
 ## Structure
 

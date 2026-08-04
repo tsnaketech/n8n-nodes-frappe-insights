@@ -14,7 +14,7 @@
 	],
 	"author": {
 		"name": "tsnaketech",
-		"email": "poubello@outlook.com",
+		"email": "snaketech@proton.me",
 		"url": "https://github.com/tsnaketech"
 	},
 	"repository": {
@@ -47,7 +47,7 @@
 		]
 	},
 	"devDependencies": {
-		"@n8n/node-cli": "0.41.2",
+		"@n8n/node-cli": "0.42.0",
 		"eslint": "9.39.5",
 		"prettier": "3.9.6",
 		"release-it": "21.0.1",
