@@ -1,0 +1,59 @@
+{
+	"name": "n8n-nodes-frappe-insights",
+	"version": "0.1.0",
+	"description": "n8n node for Frappe Insights: workbooks, queries, charts, dashboards, data sources and alerts",
+	"license": "MIT",
+	"homepage": "https://github.com/tsnaketech/n8n-nodes-frappe-insights#readme",
+	"keywords": [
+		"n8n-community-node-package",
+		"frappe",
+		"frappe-insights",
+		"insights",
+		"analytics",
+		"business-intelligence"
+	],
+	"author": {
+		"name": "tsnaketech",
+		"email": "poubello@outlook.com",
+		"url": "https://github.com/tsnaketech"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/tsnaketech/n8n-nodes-frappe-insights.git"
+	},
+	"bugs": {
+		"url": "https://github.com/tsnaketech/n8n-nodes-frappe-insights/issues"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/FrappeApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/FrappeInsights/FrappeInsights.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "0.41.2",
+		"eslint": "9.39.5",
+		"prettier": "3.9.6",
+		"release-it": "21.0.1",
+		"typescript": "5.9.3"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}
