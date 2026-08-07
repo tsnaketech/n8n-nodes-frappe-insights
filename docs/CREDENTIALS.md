@@ -28,22 +28,21 @@ différemment. Un seul credential veut dire :
 | **Frappe** (générique) | `n8n-nodes-frappe` | tout doctype du site, choisi à l'exécution par recherche serveur (`resourceLocator`) — plus l'appel de méthodes whitelistées | livré |
 | **Frappe CRM** | `n8n-nodes-frappe-crm` | `CRM Lead`, `CRM Deal`, `Contact`, `CRM Organization`, `CRM Task`, `FCRM Note` | livré |
 | **Frappe Helpdesk** | `n8n-nodes-frappe-helpdesk` | `HD Ticket`, `HD Customer`, `HD Team`, `HD Ticket Priority`, `HD Ticket Type` (+ `HD Ticket Status` et `HD Agent` en lecture) | livré |
-| **Frappe HRMS** | `n8n-nodes-frappe-hrms` | `Employee`, `Leave Application`, `Attendance`, `Expense Claim`, `Salary Slip`, `Job Opening`, `Job Applicant`, `Job Offer` | livré |
+| **Frappe HR** | `n8n-nodes-frappe-hrms` | `Employee`, `Leave Application`, `Attendance`, `Expense Claim`, `Salary Slip`, `Job Opening`, `Job Applicant`, `Job Offer` | livré |
 | **Frappe Insights** | `n8n-nodes-frappe-insights` | `Insights Workbook`, `Insights Query v3`, `Insights Chart v3`, `Insights Dashboard v3`, `Insights Data Source v3`, `Insights Table v3`, `Insights Alert`, `Insights Team` | livré (ce dépôt) |
 | **Frappe Learning** | `n8n-nodes-frappe-learning` | `LMS Course`, `Course Chapter`, `Course Lesson`, `LMS Batch`, `LMS Enrollment`, `LMS Batch Enrollment`, `LMS Quiz`, `LMS Assignment`, `LMS Assignment Submission`, `LMS Certificate` (+ `LMS Quiz Submission` et `LMS Course Progress` en lecture) | livré |
 | **Frappe Lending** | `n8n-nodes-frappe-lending` | `Loan Product`, `Loan Application`, `Loan`, `Loan Disbursement`, `Loan Repayment`, `Loan Write Off`, `Loan Security` (+ `Loan Repayment Schedule`, `Loan Interest Accrual` et `Loan Demand` en lecture) | livré |
 
 Le nœud Insights **ne définit aucune variante** du credential : sa description déclare
-`credentials: [{ name: 'frappeApi', required: true }]`, exactement comme les nœuds CRM,
-Helpdesk et HRMS.
+`credentials: [{ name: 'frappeApi', required: true }]`, exactement comme les six autres.
 
 > Note d'empaquetage : n8n charge les credentials par package npm. Chaque package embarque
 > donc son propre fichier `credentials/FrappeApi.credentials.ts`, mais tous exposent le
-> **même** `name = 'frappeApi'` et les mêmes noms de champs. Un utilisateur qui installe
-> Insights, HRMS, CRM et Helpdesk voit un seul type « Frappe API » et configure son site une
-> fois. **Toute modification du fichier doit être répercutée à l'identique dans les autres
-> packages** — il y en a quatre à garder synchronisées — sinon des définitions divergentes
-> se disputent le même nom interne.
+> **même** `name = 'frappeApi'` et les mêmes noms de champs. Un utilisateur qui installe le
+> nœud générique, CRM, Helpdesk, HRMS, Insights, Learning et Lending voit un seul type
+> « Frappe API » et configure son site une fois. **Toute modification du fichier doit être
+> répercutée à l'identique dans les autres packages** — il y en a sept à garder
+> synchronisées — sinon des définitions divergentes se disputent le même nom interne.
 
 ## Ce que le credential contient
 
@@ -61,9 +60,20 @@ Authorization: token {apiKey}:{apiSecret}
 
 Le test de connexion appelle `GET /api/method/frappe.auth.get_logged_user`. Cet endpoint
 est fourni par Frappe Framework lui-même, pas par une application : il fonctionne à
-l'identique sur un site CRM, Helpdesk, HR ou Insights. Une règle supplémentaire traite la
-réponse `{"message": "Guest"}` comme un échec — Frappe répond `200 OK` en tant qu'invité
-quand les clés ne sont pas reconnues, ce qui donnerait sinon un faux positif.
+l'identique sur un site CRM, Helpdesk, HR ou LMS. Une règle supplémentaire traite la
+réponse `{"message": "Guest"}` comme un échec — en **Frappe 15**, le site répond `200 OK`
+en tant qu'invité quand les clés ne sont pas reconnues, ce qui donnerait sinon un faux
+positif. En **Frappe 16**, le même appel lève une `PermissionError` et répond `403` : la
+règle devient inatteignable, mais elle reste nécessaire pour les sites en v15. Des clés
+fausses donnent `401` dans les deux versions.
+
+Le `baseURL` du test rejoue `normalizeSiteUrl()` sous forme d'expression n8n, chemin de SPA
+compris — et ce n'est pas cosmétique. Les routeurs de SPA servent leur propre page HTML avec
+un `200` pour tout ce qui passe sous leur préfixe : un test envoyé sur
+`https://site/insights/api/method/frappe.auth.get_logged_user` reçoit du HTML en `200`, aucune
+règle ne se déclenche, et le credential passe au vert avec des clés fausses. Toute entrée
+ajoutée à `SPA_MOUNT_PATHS` dans `GenericFunctions.ts` doit l'être aussi dans cette
+expression, dans les sept packages.
 
 ## Ce que le credential ne contient pas, volontairement
 
@@ -72,10 +82,18 @@ que la racine du site ; c'est chaque nœud qui construit ses propres URL
 (`/api/resource/Insights Query v3`, `/api/resource/CRM Lead`, …). C'est cette absence de
 couplage qui le rend réutilisable tel quel.
 
-Note pratique : `normalizeSiteUrl()` retire un éventuel chemin de SPA en fin d'URL
-(`/insights`, `/crm`, `/helpdesk`, `/hr`, `/app`…) ainsi que le slash final. Coller
+Note pratique : `normalizeSiteUrl()` tronque l'URL à partir du premier chemin de SPA
+rencontré (`/desk`, `/app`, `/crm`, `/helpdesk`, `/hrms`, `/hr`, `/roster`, `/lms`,
+`/insights`, `/builder`) et retire le slash final. Coller
 `http://insights.localhost:8000/insights`, l'URL affichée par le navigateur, fonctionne
 donc aussi bien que la racine du site — l'API vit toujours à la racine.
+
+La troncature porte sur tout ce qui suit le point de montage, et pas seulement sur un
+segment final : Frappe v16 a déplacé le Desk de `/app` vers `/desk` et fait porter à son
+URL l'espace de travail, voire le document. `…/desk/hrms` et
+`…/desk/employee/HR-EMP-00001` se ramènent donc eux aussi à la racine. Seul le chemin est
+inspecté, jamais l'hôte : un site servi depuis `https://app.example.com` garde son nom de
+domaine intact.
 
 ## Permissions côté Frappe
 
@@ -167,7 +185,6 @@ décorateur `@frappe.whitelist()`, mais `frappe/handler.py` l'exempte nommément
 (`if method != run_doc_method:`), sur les branches `version-15`, `version-16` et `develop`.
 Le nommer par son **chemin complet** : le nom court passe par un raccourci que
 `frappe/handler.py` déprécie à chaque appel et supprime en v17.
-
 
 ### 3. Déclarer le nœud dans `package.json`
 

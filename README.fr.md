@@ -32,7 +32,7 @@ Redémarrez n8n, puis cherchez « Frappe Insights » dans le panneau des nœuds.
 
 ## Credentials
 
-Ce package utilise un seul type de credential, **Frappe API** (`frappeApi`) — le *même* que celui des nœuds Frappe CRM, Frappe Helpdesk et Frappe HRMS. S'il est déjà configuré, le nœud Frappe Insights peut le sélectionner directement.
+Ce package utilise un seul type de credential, **Frappe API** (`frappeApi`) — le *même* que celui des nœuds Frappe CRM, Frappe Helpdesk et Frappe HR. S'il est déjà configuré, le nœud Frappe Insights peut le sélectionner directement.
 
 ### Générer les clés d'API dans Frappe
 
@@ -181,6 +181,24 @@ Les réponses `401` et `403` portent une indication supplémentaire orientant ve
 
 Chaque exemple ci-dessous est un nœud à coller dans un workflow n8n. Remplacez le bloc `credentials` par le vôtre.
 
+### Champs Link
+
+Les champs qui pointent vers un autre enregistrement Frappe sont des sélecteurs, plus du texte
+libre. Ils prennent ici une forme unique :
+
+- **Une liste cherchable** pour tout ce que l'activité alimente — requêtes, classeurs. Le filtrage
+  se fait côté Frappe, par pages de 50, et la liste affiche un libellé lisible à côté de
+  l'identifiant : `1 — Order Analysis`. Chacun garde un onglet **By Name** pour une valeur littérale
+  ou une expression.
+
+Tous les Link de ce nœud pointent vers une requête ou un classeur, tous deux alimentés par
+l'utilisateur : il n'y a donc pas de liste déroulante ici, uniquement des recherches.
+
+Un sélecteur ne bloque jamais : si la liste ne peut pas être lue, le mode manuel accepte toujours
+l'identifiant. À noter, un champ cherchable est stocké sous la forme
+`{ "__rl": true, "mode": …, "value": … }`, d'où son écriture complète dans les exemples.
+
+
 ### Workbook — création
 
 ```json
@@ -209,7 +227,11 @@ L'opération que vous utiliserez le plus. Elle sort un item par ligne :
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"page": 1,
 			"page_size": 500,
@@ -235,7 +257,11 @@ Filtrer une exécution sans toucher à la requête enregistrée :
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"adhoc_filters": "[{\"column\": {\"column_name\": \"status\"}, \"operator\": \"=\", \"value\": \"Open\"}]"
 		},
@@ -262,7 +288,11 @@ Avec `splitRows` désactivé, vous obtenez un item unique contenant `rows`, `col
 	"parameters": {
 		"resource": "query",
 		"operation": "getCount",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -281,7 +311,11 @@ Sortie : `{ "name": "abc123de45", "count": 42 }`. Placez un nœud **If** derriè
 	"parameters": {
 		"resource": "query",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Tâches ouvertes par statut",
 			"is_native_query": true,
@@ -305,10 +339,18 @@ Sortie : `{ "name": "abc123de45", "count": 42 }`. Placez un nœud **If** derriè
 	"parameters": {
 		"resource": "chart",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Tâches par statut",
-			"query": "abc123de45",
+			"query": {
+				"__rl": true,
+				"mode": "name",
+				"value": "abc123de45"
+			},
 			"chart_type": "Bar",
 			"config": "{\"x_axis\":{\"column_name\":\"status\"},\"y_axis\":{\"series\":[{\"measure\":\"total\"}]}}"
 		}
@@ -361,7 +403,11 @@ Les champs obligatoires dépendent de la branche que valide le doctype : `REST A
 	"parameters": {
 		"resource": "dataSource",
 		"operation": "testConnection",
-		"documentId": "ventes_prod"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "ventes_prod"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -381,7 +427,11 @@ Sortie : `{ "name": "ventes_prod", "success": true }`. Insights avale l'exceptio
 		"resource": "alert",
 		"operation": "create",
 		"title": "Incidents ouverts au-dessus du seuil",
-		"query": "abc123de45",
+		"query": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"condition": "len(results) > 10",
 		"additionalFields": {
 			"frequency": "Hourly",
@@ -432,7 +482,11 @@ Sortie : `{ "name": "ventes_prod", "success": true }`. Insights avale l'exceptio
 	"parameters": {
 		"resource": "workbook",
 		"operation": "duplicate",
-		"documentId": "12"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -455,7 +509,11 @@ N'importe quelle resource inscriptible, à partir de son document ID :
 	"parameters": {
 		"resource": "chart",
 		"operation": "delete",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,

@@ -32,7 +32,7 @@ Restart n8n, then search for "Frappe Insights" in the node panel.
 
 ## Credentials
 
-This package uses a single credential type, **Frappe API** (`frappeApi`) — the *same* credential type as the Frappe CRM, Frappe Helpdesk and Frappe HRMS nodes. If you already have it configured, the Frappe Insights node can select it directly.
+This package uses a single credential type, **Frappe API** (`frappeApi`) — the *same* credential type as the Frappe CRM, Frappe Helpdesk and Frappe HR nodes. If you already have it configured, the Frappe Insights node can select it directly.
 
 ### Generating API keys in Frappe
 
@@ -181,6 +181,24 @@ Frappe reports errors in a `_server_messages` field that contains JSON encoded *
 
 Each example below is a node you can paste into an n8n workflow. Replace the `credentials` block with your own credential.
 
+### Link fields
+
+Fields that point at another Frappe record are pickers, not free text. Here they take a single
+shape:
+
+- **A searchable list** for anything the day fills up — queries, workbooks. Filtering happens on the
+  Frappe side, 50 rows at a time, and the list shows a readable label beside the identifier:
+  `1 — Order Analysis`. Every one of them keeps a **By Name** tab for a literal value or an
+  expression.
+
+Every Link this node exposes points at a query or a workbook, both filled by the user, so there is
+no dropdown here — only searches.
+
+A picker never blocks you: if the list cannot be read, the manual mode still accepts the identifier.
+Note that a searchable field is stored as `{ "__rl": true, "mode": …, "value": … }`, which is why
+the examples below spell it out.
+
+
 ### Workbook — create
 
 ```json
@@ -209,7 +227,11 @@ The operation you will use most. One item per row comes out:
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"page": 1,
 			"page_size": 500,
@@ -235,7 +257,11 @@ Filter one run without touching the saved query:
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"adhoc_filters": "[{\"column\": {\"column_name\": \"status\"}, \"operator\": \"=\", \"value\": \"Open\"}]"
 		},
@@ -262,7 +288,11 @@ With `splitRows` off you get a single item holding `rows`, `columns`, the genera
 	"parameters": {
 		"resource": "query",
 		"operation": "getCount",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -281,7 +311,11 @@ Outputs `{ "name": "abc123de45", "count": 42 }`. Put an **If** node after it to 
 	"parameters": {
 		"resource": "query",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Open tasks by status",
 			"is_native_query": true,
@@ -305,10 +339,18 @@ Outputs `{ "name": "abc123de45", "count": 42 }`. Put an **If** node after it to 
 	"parameters": {
 		"resource": "chart",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Tasks by status",
-			"query": "abc123de45",
+			"query": {
+				"__rl": true,
+				"mode": "name",
+				"value": "abc123de45"
+			},
 			"chart_type": "Bar",
 			"config": "{\"x_axis\":{\"column_name\":\"status\"},\"y_axis\":{\"series\":[{\"measure\":\"total\"}]}}"
 		}
@@ -361,7 +403,11 @@ Mandatory fields depend on the branch the doctype validates: `REST API` needs `a
 	"parameters": {
 		"resource": "dataSource",
 		"operation": "testConnection",
-		"documentId": "sales_prod"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "sales_prod"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -381,7 +427,11 @@ Outputs `{ "name": "sales_prod", "success": true }`. Insights swallows the drive
 		"resource": "alert",
 		"operation": "create",
 		"title": "Open incidents above threshold",
-		"query": "abc123de45",
+		"query": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"condition": "len(results) > 10",
 		"additionalFields": {
 			"frequency": "Hourly",
@@ -432,7 +482,11 @@ Outputs `{ "name": "sales_prod", "success": true }`. Insights swallows the drive
 	"parameters": {
 		"resource": "workbook",
 		"operation": "duplicate",
-		"documentId": "12"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -455,7 +509,11 @@ Any writable resource, given its document ID:
 	"parameters": {
 		"resource": "chart",
 		"operation": "delete",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,

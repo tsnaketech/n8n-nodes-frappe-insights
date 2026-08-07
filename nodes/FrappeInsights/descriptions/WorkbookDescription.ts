@@ -11,6 +11,14 @@ import { documentIdField, getManyFields, workbookOperationsFor } from './CommonD
  * `imported_checksum` are marked read-only on the doctype — Insights fills them during
  * import and template instantiation — so the node does not expose them.
  */
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const WORKBOOK_REQUIRED_ON_CREATE = ['title'];
+
 export const workbookDescription: INodeProperties[] = [
 	workbookOperationsFor('workbook', 'workbook'),
 	{
@@ -26,6 +34,7 @@ export const workbookDescription: INodeProperties[] = [
 		'workbook',
 		'The Frappe record\'s "name" field. The doctype is autoincrement, so it is an integer, e.g. 12.',
 		['get', 'update', 'delete', 'duplicate'],
+		'12',
 	),
 	{
 		displayName: 'Update Fields',

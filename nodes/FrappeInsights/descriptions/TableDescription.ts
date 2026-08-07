@@ -20,6 +20,7 @@ export const tableDescription: INodeProperties[] = [
 		'table',
 		'The Frappe record\'s "name" field. Insights generates it when syncing; the real table name lives in the "table" field.',
 		['get'],
+		'abc123de45',
 	),
 	...getManyFields('table'),
 ];

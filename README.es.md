@@ -32,7 +32,7 @@ Reinicia n8n y busca «Frappe Insights» en el panel de nodos.
 
 ## Credenciales
 
-Este paquete usa un único tipo de credencial, **Frappe API** (`frappeApi`) — el *mismo* que los nodos de Frappe CRM, Frappe Helpdesk y Frappe HRMS. Si ya la tienes configurada, el nodo Frappe Insights puede seleccionarla directamente.
+Este paquete usa un único tipo de credencial, **Frappe API** (`frappeApi`) — el *mismo* que los nodos de Frappe CRM, Frappe Helpdesk y Frappe HR. Si ya la tienes configurada, el nodo Frappe Insights puede seleccionarla directamente.
 
 ### Generar las claves de API en Frappe
 
@@ -181,6 +181,24 @@ Las respuestas `401` y `403` llevan una pista adicional que apunta al rol de Fra
 
 Cada ejemplo es un nodo que puedes pegar en un flujo de n8n. Sustituye el bloque `credentials` por el tuyo.
 
+### Campos Link
+
+Los campos que apuntan a otro registro de Frappe son selectores, ya no texto libre. Aquí adoptan una
+sola forma:
+
+- **Una lista con búsqueda** para todo lo que crece con la actividad diaria — consultas, libros de
+  trabajo. El filtrado ocurre en Frappe, de 50 en 50, y la lista muestra una etiqueta legible junto
+  al identificador: `1 — Order Analysis`. Todos conservan una pestaña **By Name** para un valor
+  literal o una expresión.
+
+Todos los Link de este nodo apuntan a una consulta o a un libro de trabajo, ambos rellenados por el
+usuario: por eso aquí no hay listas desplegables, solo búsquedas.
+
+Un selector nunca bloquea: si la lista no puede leerse, el modo manual sigue aceptando el
+identificador. Un campo con búsqueda se guarda como `{ "__rl": true, "mode": …, "value": … }`, de
+ahí que los ejemplos lo escriban completo.
+
+
 ### Workbook — crear
 
 ```json
@@ -209,7 +227,11 @@ La operación que más usarás. Sale un ítem por fila:
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"page": 1,
 			"page_size": 500,
@@ -235,7 +257,11 @@ Filtrar una ejecución sin tocar la consulta guardada:
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"adhoc_filters": "[{\"column\": {\"column_name\": \"status\"}, \"operator\": \"=\", \"value\": \"Open\"}]"
 		},
@@ -262,7 +288,11 @@ Con `splitRows` desactivado obtienes un único ítem con `rows`, `columns`, el `
 	"parameters": {
 		"resource": "query",
 		"operation": "getCount",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -281,7 +311,11 @@ Devuelve `{ "name": "abc123de45", "count": 42 }`. Pon un nodo **If** detrás par
 	"parameters": {
 		"resource": "query",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Tareas abiertas por estado",
 			"is_native_query": true,
@@ -305,10 +339,18 @@ Devuelve `{ "name": "abc123de45", "count": 42 }`. Pon un nodo **If** detrás par
 	"parameters": {
 		"resource": "chart",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Tareas por estado",
-			"query": "abc123de45",
+			"query": {
+				"__rl": true,
+				"mode": "name",
+				"value": "abc123de45"
+			},
 			"chart_type": "Bar",
 			"config": "{\"x_axis\":{\"column_name\":\"status\"},\"y_axis\":{\"series\":[{\"measure\":\"total\"}]}}"
 		}
@@ -361,7 +403,11 @@ Los campos obligatorios dependen de la rama que valida el doctype: `REST API` ne
 	"parameters": {
 		"resource": "dataSource",
 		"operation": "testConnection",
-		"documentId": "ventas_prod"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "ventas_prod"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -381,7 +427,11 @@ Devuelve `{ "name": "ventas_prod", "success": true }`. Insights se traga la exce
 		"resource": "alert",
 		"operation": "create",
 		"title": "Incidencias abiertas por encima del umbral",
-		"query": "abc123de45",
+		"query": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"condition": "len(results) > 10",
 		"additionalFields": {
 			"frequency": "Hourly",
@@ -432,7 +482,11 @@ Devuelve `{ "name": "ventas_prod", "success": true }`. Insights se traga la exce
 	"parameters": {
 		"resource": "workbook",
 		"operation": "duplicate",
-		"documentId": "12"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -455,7 +509,11 @@ Cualquier recurso escribible, a partir de su document ID:
 	"parameters": {
 		"resource": "chart",
 		"operation": "delete",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,

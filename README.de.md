@@ -32,7 +32,7 @@ Starte n8n neu und suche im Node-Panel nach „Frappe Insights".
 
 ## Zugangsdaten
 
-Dieses Paket verwendet einen einzigen Zugangsdatentyp, **Frappe API** (`frappeApi`) — denselben wie die Nodes für Frappe CRM, Frappe Helpdesk und Frappe HRMS. Ist er bereits eingerichtet, kann der Frappe-Insights-Node ihn direkt auswählen.
+Dieses Paket verwendet einen einzigen Zugangsdatentyp, **Frappe API** (`frappeApi`) — denselben wie die Nodes für Frappe CRM, Frappe Helpdesk und Frappe HR. Ist er bereits eingerichtet, kann der Frappe-Insights-Node ihn direkt auswählen.
 
 ### API-Schlüssel in Frappe erzeugen
 
@@ -181,6 +181,24 @@ Frappe meldet Fehler in einem Feld `_server_messages`, das JSON *innerhalb* von 
 
 Jedes Beispiel unten ist ein Node, den du in einen n8n-Workflow einfügen kannst. Ersetze den `credentials`-Block durch deinen eigenen.
 
+### Link-Felder
+
+Felder, die auf einen anderen Frappe-Datensatz zeigen, sind Auswahlfelder statt Freitext. Hier gibt
+es nur eine Form:
+
+- **Eine durchsuchbare Liste** für alles, was im Tagesgeschäft wächst — Abfragen, Arbeitsmappen.
+  Gefiltert wird auf Frappe-Seite, 50 Zeilen pro Seite, und die Liste zeigt eine lesbare Bezeichnung
+  neben der Kennung: `1 — Order Analysis`. Jedes behält einen Tab **By Name** für einen wörtlichen
+  Wert oder einen Ausdruck.
+
+Jeder Link dieses Nodes zeigt auf eine Abfrage oder eine Arbeitsmappe, beide vom Benutzer gefüllt —
+daher gibt es hier keine Auswahlliste, nur Suchen.
+
+Ein Auswahlfeld blockiert nie: Lässt sich die Liste nicht lesen, nimmt der manuelle Modus weiterhin
+die Kennung an. Ein durchsuchbares Feld wird als `{ "__rl": true, "mode": …, "value": … }`
+gespeichert — daher die ausgeschriebene Form in den Beispielen.
+
+
 ### Workbook — anlegen
 
 ```json
@@ -209,7 +227,11 @@ Die Operation, die du am häufigsten nutzen wirst. Sie gibt ein Item pro Zeile a
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"page": 1,
 			"page_size": 500,
@@ -235,7 +257,11 @@ Einen Lauf filtern, ohne die gespeicherte Abfrage anzufassen:
 	"parameters": {
 		"resource": "query",
 		"operation": "execute",
-		"documentId": "abc123de45",
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"executeOptions": {
 			"adhoc_filters": "[{\"column\": {\"column_name\": \"status\"}, \"operator\": \"=\", \"value\": \"Open\"}]"
 		},
@@ -262,7 +288,11 @@ Mit abgeschaltetem `splitRows` erhältst du ein einzelnes Item mit `rows`, `colu
 	"parameters": {
 		"resource": "query",
 		"operation": "getCount",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -281,7 +311,11 @@ Ergibt `{ "name": "abc123de45", "count": 42 }`. Setze einen **If**-Node dahinter
 	"parameters": {
 		"resource": "query",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Offene Aufgaben nach Status",
 			"is_native_query": true,
@@ -305,10 +339,18 @@ Ergibt `{ "name": "abc123de45", "count": 42 }`. Setze einen **If**-Node dahinter
 	"parameters": {
 		"resource": "chart",
 		"operation": "create",
-		"workbook": "12",
+		"workbook": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		},
 		"additionalFields": {
 			"title": "Aufgaben nach Status",
-			"query": "abc123de45",
+			"query": {
+				"__rl": true,
+				"mode": "name",
+				"value": "abc123de45"
+			},
 			"chart_type": "Bar",
 			"config": "{\"x_axis\":{\"column_name\":\"status\"},\"y_axis\":{\"series\":[{\"measure\":\"total\"}]}}"
 		}
@@ -361,7 +403,11 @@ Welche Felder Pflicht sind, hängt vom Zweig ab, den der Doctype validiert: `RES
 	"parameters": {
 		"resource": "dataSource",
 		"operation": "testConnection",
-		"documentId": "vertrieb_prod"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "vertrieb_prod"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -381,7 +427,11 @@ Ergibt `{ "name": "vertrieb_prod", "success": true }`. Insights verschluckt die 
 		"resource": "alert",
 		"operation": "create",
 		"title": "Offene Vorfälle über Schwellwert",
-		"query": "abc123de45",
+		"query": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		},
 		"condition": "len(results) > 10",
 		"additionalFields": {
 			"frequency": "Hourly",
@@ -432,7 +482,11 @@ Ergibt `{ "name": "vertrieb_prod", "success": true }`. Insights verschluckt die 
 	"parameters": {
 		"resource": "workbook",
 		"operation": "duplicate",
-		"documentId": "12"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "12"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,
@@ -455,7 +509,11 @@ Jede beschreibbare Ressource, anhand ihrer Document ID:
 	"parameters": {
 		"resource": "chart",
 		"operation": "delete",
-		"documentId": "abc123de45"
+		"documentId": {
+			"__rl": true,
+			"mode": "name",
+			"value": "abc123de45"
+		}
 	},
 	"type": "n8n-nodes-frappe-insights.frappeInsights",
 	"typeVersion": 1,

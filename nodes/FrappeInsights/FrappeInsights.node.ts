@@ -1,24 +1,35 @@
 import type {
 	IDataObject,
 	IExecuteFunctions,
+	IHttpRequestMethods,
+	ILoadOptionsFunctions,
 	INodeExecutionData,
+	INodeListSearchResult,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import {
+	ALERT_REQUIRED_ON_CREATE,
 	alertDescription,
+	CHART_REQUIRED_ON_CREATE,
 	chartDescription,
+	DASHBOARD_REQUIRED_ON_CREATE,
 	dashboardDescription,
+	DATA_SOURCE_REQUIRED_ON_CREATE,
 	dataSourceDescription,
+	QUERY_REQUIRED_ON_CREATE,
 	queryDescription,
 	tableDescription,
+	TEAM_REQUIRED_ON_CREATE,
 	teamDescription,
+	WORKBOOK_REQUIRED_ON_CREATE,
 	workbookDescription,
 } from './descriptions';
 import { frappeApiRequest, frappeApiRequestAllItems, frappeRunDocMethod } from './GenericFunctions';
 import { getDoctype } from './types';
+import type { FrappeInsightsResource } from './types';
 
 /**
  * Date fields (day only) among those exposed by the node.
@@ -55,18 +66,19 @@ const JSON_FIELDS = new Set([
 const NAIVE_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2})(?::(\d{2}))?)?$/;
 
 /**
- * Fields exposed at the top level, outside the "Additional Fields" collection, because
- * the doctype marks them `reqd`. Kept here rather than in the descriptions so that the
- * execute loop has a single place to read them from.
+ * Fields each resource exposes at the top level on create, outside the collection.
+ *
+ * Composed from the lists the descriptions declare rather than restated here: the two
+ * used to be written twice and had already drifted apart in order.
  */
 const REQUIRED_ON_CREATE: Record<string, string[]> = {
-	workbook: ['title'],
-	query: ['workbook'],
-	chart: ['workbook'],
-	dashboard: ['workbook'],
-	dataSource: ['title', 'type'],
-	alert: ['title', 'query', 'condition'],
-	team: ['team_name'],
+	workbook: WORKBOOK_REQUIRED_ON_CREATE,
+	query: QUERY_REQUIRED_ON_CREATE,
+	chart: CHART_REQUIRED_ON_CREATE,
+	dashboard: DASHBOARD_REQUIRED_ON_CREATE,
+	dataSource: DATA_SOURCE_REQUIRED_ON_CREATE,
+	alert: ALERT_REQUIRED_ON_CREATE,
+	team: TEAM_REQUIRED_ON_CREATE,
 };
 
 /**
@@ -328,6 +340,179 @@ function buildQueryMethodArgs(
 	return args;
 }
 
+/** Documents fetched per page by the "Document" locator. It asks for more through its token. */
+const SEARCH_PAGE_SIZE = 50;
+
+/**
+ * Field carrying the human-readable label of a resource, when `name` is not already it.
+ *
+ * Most doctypes here are autonamed with a series or a hash, so a list of bare `name` values
+ * would be unusable. Exceptions, left out on purpose: team, whose `autoname` is `field:team_name` — its `name` already is the label.
+ *
+ * A wrong entry does not break the picker: `searchDocuments` retries on `name` alone when
+ * Frappe rejects the field, so the list degrades to identifiers instead of erroring.
+ */
+const TITLE_FIELD_BY_RESOURCE: Partial<Record<FrappeInsightsResource, string>> = {
+	alert: 'title',
+	chart: 'title',
+	dashboard: 'title',
+	dataSource: 'title',
+	query: 'title',
+	table: 'label',
+	workbook: 'title',
+};
+
+/** Escapes the LIKE wildcards Frappe forwards to SQL, so a literal `%` searches for `%`. */
+function escapeLike(value: string): string {
+	return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+/**
+ * Lists the documents of one doctype, filtered server-side.
+ *
+ * A plain dropdown is not an option: these doctypes grow without bound, so Frappe does the
+ * filtering and the node only pages through the answer.
+ */
+async function searchIn(
+	this: ILoadOptionsFunctions,
+	doctype: string,
+	titleField: string | undefined,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	const start = Number(paginationToken ?? 0);
+
+	const query = (title: string | undefined): IDataObject => {
+		const qs: IDataObject = {
+			fields: title === undefined ? ['name'] : ['name', title],
+			order_by: 'modified desc',
+			limit_start: start,
+			limit_page_length: SEARCH_PAGE_SIZE,
+		};
+
+		if (filter) {
+			const pattern = `%${escapeLike(filter)}%`;
+			// On a titled doctype the search has to match either side: nobody looks a record up
+			// by the identifier Frappe gave it.
+			qs.or_filters =
+				title === undefined
+					? [['name', 'like', pattern]]
+					: [
+							['name', 'like', pattern],
+							[title, 'like', pattern],
+						];
+		}
+
+		return qs;
+	};
+
+	const fetch = async (title: string | undefined): Promise<IDataObject[]> =>
+		await frappeApiRequest.call<
+			ILoadOptionsFunctions,
+			[IHttpRequestMethods, string, IDataObject, IDataObject, number],
+			Promise<IDataObject[]>
+		>(this, 'GET', `/api/resource/${encodeURIComponent(doctype)}`, {}, query(title), 0);
+
+	let effectiveTitle = titleField;
+	let documents: IDataObject[];
+	if (effectiveTitle === undefined) {
+		documents = await fetch(undefined);
+	} else {
+		try {
+			documents = await fetch(effectiveTitle);
+		} catch {
+			// The title field is a mapping, not a contract: a customised doctype, or a Frappe
+			// version that renamed it, makes the query fail. Falling back to `name` keeps the
+			// picker usable rather than turning a cosmetic detail into a blocking error. The
+			// retry cannot fail for the same reason, so the error it may raise is the real one.
+			effectiveTitle = undefined;
+			documents = await fetch(undefined);
+		}
+	}
+
+	return {
+		results: documents.map((document) => {
+			const name = String(document.name);
+			const title = effectiveTitle === undefined ? undefined : document[effectiveTitle];
+			return {
+				name: typeof title === 'string' && title !== '' ? `${name} — ${title}` : name,
+				value: name,
+			};
+		}),
+		// A short page is the last one; returning no token stops the locator from asking again.
+		paginationToken:
+			documents.length === SEARCH_PAGE_SIZE ? String(start + SEARCH_PAGE_SIZE) : undefined,
+	};
+}
+
+/**
+ * Lists the documents of the resource currently selected — the "Document" locator.
+ *
+ * The doctype comes from the `resource` parameter rather than from one of its own: that
+ * mapping is what this node knows and the generic Frappe node does not.
+ */
+export async function searchDocuments(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	const resource = this.getNodeParameter('resource') as string;
+	return await searchIn.call(
+		this,
+		getDoctype(resource),
+		TITLE_FIELD_BY_RESOURCE[resource as FrappeInsightsResource],
+		filter,
+		paginationToken,
+	);
+}
+
+/**
+ * Builds the search method of a Link field, bound to the doctype that field points at.
+ *
+ * One method per target doctype, and not a single generic one, because n8n names the method
+ * in the field (`searchListMethod`) and calls it with nothing but the filter and the
+ * pagination token — it never says which field asked. `searchDocuments` gets away with a
+ * single method only because it can read the `resource` parameter.
+ */
+function linkSearch(doctype: string, titleField?: string) {
+	return async function (
+		this: ILoadOptionsFunctions,
+		filter?: string,
+		paginationToken?: string,
+	): Promise<INodeListSearchResult> {
+		return await searchIn.call(this, doctype, titleField, filter, paginationToken);
+	};
+}
+
+// No `linkOptions` here, unlike the sibling packages: every Link this node exposes points at
+// `Insights Query v3` or `Insights Workbook`, both fed by the user and both unreadable on
+// their own, so all of them are searches. There is no configuration doctype to list.
+
+/**
+ * Replaces the resource-locator objects a collection carries with the identifiers they hold.
+ *
+ * A locator is stored as `{ __rl: true, mode, value }`. Reading a whole collection with
+ * `getNodeParameter('additionalFields', i)` returns those objects untouched: n8n only
+ * unwraps a locator when the parameter is addressed by its own path with
+ * `extractValue: true`, which would mean one call per field. Spreading the collection into
+ * the request body without this would send Frappe an object where it expects a name.
+ *
+ * Only the stored `value` is taken. That is exact here because the manual mode of these
+ * locators is a plain string with no `extractValue` regex of its own — the day one gains
+ * one, it has to be read through `getNodeParameter` instead.
+ */
+function unwrapResourceLocators(collection: IDataObject): IDataObject {
+	const unwrapped: IDataObject = {};
+
+	for (const [key, value] of Object.entries(collection)) {
+		const isLocator =
+			value !== null && typeof value === 'object' && '__rl' in (value as IDataObject);
+		unwrapped[key] = isLocator ? ((value as IDataObject).value as IDataObject[string]) : value;
+	}
+
+	return unwrapped;
+}
+
 export class FrappeInsights implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Frappe Insights',
@@ -340,6 +525,10 @@ export class FrappeInsights implements INodeType {
 		// checks that `icon` is not a string literal, it never compares the two files, so the
 		// { light, dark } form with the same path twice would satisfy it without changing a
 		// single pixel on screen.
+		//
+		// Should monochrome variants ever be reintroduced: in n8n the key names the UI
+		// theme, not the ink colour. A white icon belongs under `dark`, a black one under
+		// `light` — the other way round makes them invisible.
 		// eslint-disable-next-line @n8n/community-nodes/icon-prefer-themed-variants
 		icon: 'file:../../icons/frappe-insights.svg',
 		group: ['transform'],
@@ -388,6 +577,16 @@ export class FrappeInsights implements INodeType {
 		],
 	};
 
+	methods = {
+		listSearch: {
+			searchDocuments,
+			// Both are unreadable on their own — a query is a hash, a workbook an integer — so
+			// each carries its title beside the identifier.
+			searchInsightsQuery: linkSearch('Insights Query v3', 'title'),
+			searchInsightsWorkbook: linkSearch('Insights Workbook', 'title'),
+		},
+	};
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -402,7 +601,9 @@ export class FrappeInsights implements INodeType {
 			try {
 				if (operation === 'create' || operation === 'update') {
 					const collectionName = operation === 'create' ? 'additionalFields' : 'updateFields';
-					const collected = this.getNodeParameter(collectionName, i, {}) as IDataObject;
+					const collected = unwrapResourceLocators(
+						this.getNodeParameter(collectionName, i, {}) as IDataObject,
+					);
 
 					let body: IDataObject = { ...collected };
 
@@ -420,7 +621,9 @@ export class FrappeInsights implements INodeType {
 						const created = await frappeApiRequest.call(this, 'POST', basePath, body, {}, i);
 						returnData.push({ json: created as IDataObject, pairedItem: { item: i } });
 					} else {
-						const documentId = this.getNodeParameter('documentId', i) as string;
+						const documentId = this.getNodeParameter('documentId', i, undefined, {
+							extractValue: true,
+						}) as string;
 						const updated = await frappeApiRequest.call(
 							this,
 							'PUT',
@@ -432,7 +635,9 @@ export class FrappeInsights implements INodeType {
 						returnData.push({ json: updated as IDataObject, pairedItem: { item: i } });
 					}
 				} else if (operation === 'get') {
-					const documentId = this.getNodeParameter('documentId', i) as string;
+					const documentId = this.getNodeParameter('documentId', i, undefined, {
+						extractValue: true,
+					}) as string;
 					const document = await frappeApiRequest.call(
 						this,
 						'GET',
@@ -443,7 +648,9 @@ export class FrappeInsights implements INodeType {
 					);
 					returnData.push({ json: document as IDataObject, pairedItem: { item: i } });
 				} else if (operation === 'delete') {
-					const documentId = this.getNodeParameter('documentId', i) as string;
+					const documentId = this.getNodeParameter('documentId', i, undefined, {
+						extractValue: true,
+					}) as string;
 					await frappeApiRequest.call(
 						this,
 						'DELETE',
@@ -457,7 +664,9 @@ export class FrappeInsights implements INodeType {
 						pairedItem: { item: i },
 					});
 				} else if (operation === 'execute') {
-					const documentId = this.getNodeParameter('documentId', i) as string;
+					const documentId = this.getNodeParameter('documentId', i, undefined, {
+						extractValue: true,
+					}) as string;
 					const options = this.getNodeParameter('executeOptions', i, {}) as IDataObject;
 					const splitRows = this.getNodeParameter('splitRows', i, true) as boolean;
 
@@ -481,7 +690,9 @@ export class FrappeInsights implements INodeType {
 						returnData.push({ json: result, pairedItem: { item: i } });
 					}
 				} else if (operation === 'getCount') {
-					const documentId = this.getNodeParameter('documentId', i) as string;
+					const documentId = this.getNodeParameter('documentId', i, undefined, {
+						extractValue: true,
+					}) as string;
 					const options = this.getNodeParameter('countOptions', i, {}) as IDataObject;
 
 					const count = await frappeRunDocMethod.call<
@@ -502,7 +713,9 @@ export class FrappeInsights implements INodeType {
 						pairedItem: { item: i },
 					});
 				} else if (operation === 'duplicate') {
-					const documentId = this.getNodeParameter('documentId', i) as string;
+					const documentId = this.getNodeParameter('documentId', i, undefined, {
+						extractValue: true,
+					}) as string;
 					const duplicated = await frappeRunDocMethod.call(
 						this,
 						doctype,
@@ -512,26 +725,28 @@ export class FrappeInsights implements INodeType {
 						i,
 					);
 					// `Insights Workbook.duplicate` returns the **name** of the copy, not the
-						// document — and `Insights Workbook` is autoincrement, so that name is a
-						// number. Verified against a live site: the call answers `2`. n8n requires
-						// `json` to be an object, so the scalar is re-read as a document to keep the
-						// output shape identical to Create. An object is passed through untouched,
-						// in case a later Insights release starts returning the document itself.
-						const document =
-							duplicated !== null && typeof duplicated === 'object'
-								? (duplicated as IDataObject)
-								: ((await frappeApiRequest.call(
-										this,
-										'GET',
-										`${basePath}/${encodeURIComponent(String(duplicated))}`,
-										{},
-										{},
-										i,
-									)) as IDataObject);
+					// document — and `Insights Workbook` is autoincrement, so that name is a
+					// number. Verified against a live site: the call answers `2`. n8n requires
+					// `json` to be an object, so the scalar is re-read as a document to keep the
+					// output shape identical to Create. An object is passed through untouched,
+					// in case a later Insights release starts returning the document itself.
+					const document =
+						duplicated !== null && typeof duplicated === 'object'
+							? (duplicated as IDataObject)
+							: ((await frappeApiRequest.call(
+									this,
+									'GET',
+									`${basePath}/${encodeURIComponent(String(duplicated))}`,
+									{},
+									{},
+									i,
+								)) as IDataObject);
 
-						returnData.push({ json: document, pairedItem: { item: i } });
+					returnData.push({ json: document, pairedItem: { item: i } });
 				} else if (operation === 'testConnection') {
-					const documentId = this.getNodeParameter('documentId', i) as string;
+					const documentId = this.getNodeParameter('documentId', i, undefined, {
+						extractValue: true,
+					}) as string;
 					const result = await frappeRunDocMethod.call(
 						this,
 						doctype,

@@ -22,8 +22,32 @@ export function omitFields(fields: INodeProperties[], names: string[]): INodePro
 	return fields.filter((field) => !names.includes(field.name));
 }
 
-/** The five CRUD operations, specialised for a given resource. */
-export function operationsFor(resource: string, singular: string): INodeProperties {
+/**
+ * Indefinite article for a resource label.
+ *
+ * Helpdesk, where this wording comes from, never needed it — ticket, team and customer all
+ * start with a consonant. The other packages do: "a employee", "a alert" or "a assignment"
+ * would be wrong, so the article is derived rather than written into the template.
+ */
+function articleFor(singular: string): string {
+	return /^[aeiou]/i.test(singular) ? 'an' : 'a';
+}
+
+/**
+ * The five CRUD operations, specialised for a given resource.
+ *
+ * Wording, `plural` and `articleFor` are aligned on the Helpdesk package, which is the
+ * reference for the whole family: one verb per operation ("Get", never "Retrieve"), no
+ * "new"/"existing" filler, and the plural passed in rather than derived — `${singular}s`
+ * produces "querys".
+ */
+export function operationsFor(
+	resource: string,
+	singular: string,
+	plural = `${singular}s`,
+): INodeProperties {
+	const article = articleFor(singular);
+
 	return {
 		displayName: 'Operation',
 		name: 'operation',
@@ -34,32 +58,32 @@ export function operationsFor(resource: string, singular: string): INodeProperti
 			{
 				name: 'Create',
 				value: 'create',
-				description: `Create a ${singular}`,
-				action: `Create a ${singular}`,
+				description: `Create ${article} ${singular}`,
+				action: `Create ${article} ${singular}`,
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: `Delete a ${singular}`,
-				action: `Delete a ${singular}`,
+				description: `Delete ${article} ${singular}`,
+				action: `Delete ${article} ${singular}`,
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: `Retrieve a ${singular}`,
-				action: `Get a ${singular}`,
+				description: `Get ${article} ${singular}`,
+				action: `Get ${article} ${singular}`,
 			},
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: `Retrieve many ${singular}s`,
-				action: `Get many ${singular}s`,
+				description: `Get many ${plural}`,
+				action: `Get many ${plural}`,
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: `Update a ${singular}`,
-				action: `Update a ${singular}`,
+				description: `Update ${article} ${singular}`,
+				action: `Update ${article} ${singular}`,
 			},
 		],
 		default: 'getAll',
@@ -71,7 +95,13 @@ export function operationsFor(resource: string, singular: string): INodeProperti
  * its rows. Only `Insights Query v3` gets these — a chart or a dashboard is a presentation
  * layer over a query, and its data always comes from executing that query.
  */
-export function queryOperationsFor(resource: string, singular: string): INodeProperties {
+export function queryOperationsFor(
+	resource: string,
+	singular: string,
+	plural = `${singular}s`,
+): INodeProperties {
+	const article = articleFor(singular);
+
 	return {
 		displayName: 'Operation',
 		name: 'operation',
@@ -82,44 +112,44 @@ export function queryOperationsFor(resource: string, singular: string): INodePro
 			{
 				name: 'Create',
 				value: 'create',
-				description: `Create a ${singular}`,
-				action: `Create a ${singular}`,
+				description: `Create ${article} ${singular}`,
+				action: `Create ${article} ${singular}`,
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: `Delete a ${singular}`,
-				action: `Delete a ${singular}`,
+				description: `Delete ${article} ${singular}`,
+				action: `Delete ${article} ${singular}`,
 			},
 			{
 				name: 'Execute',
 				value: 'execute',
 				description: 'Run the query and return its result rows',
-				action: `Execute a ${singular}`,
+				action: `Execute ${article} ${singular}`,
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: `Retrieve a ${singular}`,
-				action: `Get a ${singular}`,
+				description: `Get ${article} ${singular}`,
+				action: `Get ${article} ${singular}`,
 			},
 			{
 				name: 'Get Count',
 				value: 'getCount',
 				description: 'Count the rows the query would return, without fetching them',
-				action: `Get the row count of a ${singular}`,
+				action: `Get the row count of ${article} ${singular}`,
 			},
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: `Retrieve many ${singular}s`,
-				action: `Get many ${singular}s`,
+				description: `Get many ${plural}`,
+				action: `Get many ${plural}`,
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: `Update a ${singular}`,
-				action: `Update a ${singular}`,
+				description: `Update ${article} ${singular}`,
+				action: `Update ${article} ${singular}`,
 			},
 		],
 		default: 'execute',
@@ -127,7 +157,13 @@ export function queryOperationsFor(resource: string, singular: string): INodePro
 }
 
 /** CRUD plus `duplicate`, the one workbook-level method worth exposing. */
-export function workbookOperationsFor(resource: string, singular: string): INodeProperties {
+export function workbookOperationsFor(
+	resource: string,
+	singular: string,
+	plural = `${singular}s`,
+): INodeProperties {
+	const article = articleFor(singular);
+
 	return {
 		displayName: 'Operation',
 		name: 'operation',
@@ -138,38 +174,38 @@ export function workbookOperationsFor(resource: string, singular: string): INode
 			{
 				name: 'Create',
 				value: 'create',
-				description: `Create a ${singular}`,
-				action: `Create a ${singular}`,
+				description: `Create ${article} ${singular}`,
+				action: `Create ${article} ${singular}`,
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: `Delete a ${singular}`,
-				action: `Delete a ${singular}`,
+				description: `Delete ${article} ${singular}`,
+				action: `Delete ${article} ${singular}`,
 			},
 			{
 				name: 'Duplicate',
 				value: 'duplicate',
 				description: 'Copy the workbook along with its queries, charts and dashboards',
-				action: `Duplicate a ${singular}`,
+				action: `Duplicate ${article} ${singular}`,
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: `Retrieve a ${singular}`,
-				action: `Get a ${singular}`,
+				description: `Get ${article} ${singular}`,
+				action: `Get ${article} ${singular}`,
 			},
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: `Retrieve many ${singular}s`,
-				action: `Get many ${singular}s`,
+				description: `Get many ${plural}`,
+				action: `Get many ${plural}`,
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: `Update a ${singular}`,
-				action: `Update a ${singular}`,
+				description: `Update ${article} ${singular}`,
+				action: `Update ${article} ${singular}`,
 			},
 		],
 		default: 'getAll',
@@ -177,7 +213,13 @@ export function workbookOperationsFor(resource: string, singular: string): INode
 }
 
 /** CRUD plus `test_connection`, which is the only way to know a data source actually works. */
-export function dataSourceOperationsFor(resource: string, singular: string): INodeProperties {
+export function dataSourceOperationsFor(
+	resource: string,
+	singular: string,
+	plural = `${singular}s`,
+): INodeProperties {
+	const article = articleFor(singular);
+
 	return {
 		displayName: 'Operation',
 		name: 'operation',
@@ -188,38 +230,38 @@ export function dataSourceOperationsFor(resource: string, singular: string): INo
 			{
 				name: 'Create',
 				value: 'create',
-				description: `Create a ${singular}`,
-				action: `Create a ${singular}`,
+				description: `Create ${article} ${singular}`,
+				action: `Create ${article} ${singular}`,
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: `Delete a ${singular}`,
-				action: `Delete a ${singular}`,
+				description: `Delete ${article} ${singular}`,
+				action: `Delete ${article} ${singular}`,
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: `Retrieve a ${singular}`,
-				action: `Get a ${singular}`,
+				description: `Get ${article} ${singular}`,
+				action: `Get ${article} ${singular}`,
 			},
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: `Retrieve many ${singular}s`,
-				action: `Get many ${singular}s`,
+				description: `Get many ${plural}`,
+				action: `Get many ${plural}`,
 			},
 			{
 				name: 'Test Connection',
 				value: 'testConnection',
 				description: 'Test the connection to the database or the remote API',
-				action: `Test the connection of a ${singular}`,
+				action: `Test the connection of ${article} ${singular}`,
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: `Update a ${singular}`,
-				action: `Update a ${singular}`,
+				description: `Update ${article} ${singular}`,
+				action: `Update ${article} ${singular}`,
 			},
 		],
 		default: 'getAll',
@@ -230,7 +272,13 @@ export function dataSourceOperationsFor(resource: string, singular: string): INo
  * Read-only resources. `Insights Table v3` is metadata Insights writes itself when it syncs
  * a data source: creating one by hand describes a table that may not exist.
  */
-export function readOperationsFor(resource: string, singular: string): INodeProperties {
+export function readOperationsFor(
+	resource: string,
+	singular: string,
+	plural = `${singular}s`,
+): INodeProperties {
+	const article = articleFor(singular);
+
 	return {
 		displayName: 'Operation',
 		name: 'operation',
@@ -241,14 +289,14 @@ export function readOperationsFor(resource: string, singular: string): INodeProp
 			{
 				name: 'Get',
 				value: 'get',
-				description: `Retrieve a ${singular}`,
-				action: `Get a ${singular}`,
+				description: `Get ${article} ${singular}`,
+				action: `Get ${article} ${singular}`,
 			},
 			{
 				name: 'Get Many',
 				value: 'getAll',
-				description: `Retrieve many ${singular}s`,
-				action: `Get many ${singular}s`,
+				description: `Get many ${plural}`,
+				action: `Get many ${plural}`,
 			},
 		],
 		default: 'getAll',
@@ -256,22 +304,49 @@ export function readOperationsFor(resource: string, singular: string): INodeProp
 }
 
 /**
- * Document identifier (Frappe's `name` field), required by every operation that targets a
- * single record.
+ * Document targeted by every operation that acts on a single record, identified by Frappe's
+ * `name` field.
+ *
+ * A `resourceLocator` rather than a plain string: `name` is rarely something a user knows by
+ * heart — most doctypes here are autonamed with a series — so the list mode searches the site
+ * through `searchDocuments`. The `name` mode is kept for expressions and for the case where
+ * the search cannot run, so the locator is never a dead end.
+ *
+ * `extractValue: true` is mandatory when reading this parameter in `execute()`: the stored
+ * value is `{ mode, value }`, not the identifier.
  */
 export function documentIdField(
 	resource: string,
 	description: string,
 	operations: string[] = DOCUMENT_OPERATIONS,
+	placeholder?: string,
 ): INodeProperties {
 	return {
-		displayName: 'Document ID',
+		displayName: 'Document',
 		name: 'documentId',
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		required: true,
 		displayOptions: { show: { resource: [resource], operation: operations } },
 		description,
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchDocuments',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder,
+			},
+		],
 	};
 }
 
@@ -334,8 +409,7 @@ export function getManyFields(resource: string): INodeProperties[] {
 					type: 'number',
 					default: 0,
 					typeOptions: { minValue: 0 },
-					description:
-						'Number of records to skip (limit_start). Ignored while "Return All" is on.',
+					description: 'Number of records to skip (limit_start). Ignored while "Return All" is on.',
 				},
 				{
 					displayName: 'Or Filters (JSON)',

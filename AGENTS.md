@@ -106,8 +106,8 @@ satisferait sans rien changer à l'écran. Ne pas réactiver la règle sans en d
 
 - **Tout le code est en anglais** : `description`, `placeholder`, messages d'erreur,
   commentaires. C'est la langue de n8n et celle de sa communauté — un `description` français
-  s'afficherait tel quel dans une interface anglaise. Seuls restent en français `AGENTS.md`
-  (langue de travail du projet, voir `CLAUDE.md`) et les READMEs traduits. Les guillemets
+  s'afficherait tel quel dans une interface anglaise. Seuls restent en français ce fichier
+  (langue de travail du projet) et les READMEs traduits. Les guillemets
   français `« »` ne doivent pas apparaître dans les sources : utiliser `"` dans les chaînes
   et les commentaires.
 - Prettier (`.prettierrc.js`) : **tabulations**, largeur 100, guillemets simples, points-virgules,
@@ -116,7 +116,8 @@ satisferait sans rien changer à l'écran. Ne pas réactiver la règle sans en d
   le nommage des paramètres, `displayName`, l'ordre **alphabétique** des options et des
   champs de collection, la ponctuation finale des `description` — ces erreurs de lint sont
   des vraies contraintes de la plateforme, ne pas les désactiver avec un commentaire sans
-  raison. `npm run lint:fix` en corrige la majorité.
+  raison. `npm run lint:fix` en corrige la majorité — lire la mise en garde plus bas
+  avant de le lancer.
 - TypeScript en `strict`, avec `noUnusedLocals` et `noImplicitReturns` : du code mort ou une
   branche sans `return` casse le build.
 - Importer les types depuis `n8n-workflow` en `import type`, et les valeurs
@@ -227,6 +228,87 @@ satisferait sans rien changer à l'écran. Ne pas réactiver la règle sans en d
   n'est donc plus exposé. Ne pas le remettre sans avoir revérifié le contrôleur.
 - **Rôles** : les méthodes décorées `@insights_whitelist()` exigent le rôle `Insights User`
   (ou `Insights Admin` pour certaines). Une 403 vient des rôles, pas du credential.
+
+## Attention avec `npm run lint:fix`
+
+L'autofix de `node-param-description-missing-final-period` **casse les descriptions
+construites en template literal** : il a déjà remplacé, dans un package frère, une description
+`` `... ${hint}` `` par une chaîne littérale tronquée, supprimant l'interpolation au passage —
+le build ne le voit pas, seul `noUnusedLocals` a signalé le paramètre devenu inutilisé. Ce
+dépôt en compte 22. Après un `lint:fix`, relire le diff des fichiers `descriptions/` plutôt
+que de le supposer sûr.
+
+## Sélecteurs (champs Link)
+
+Aucun champ pointant vers un autre enregistrement Frappe n'est en texte libre. Quatre blocs
+portent ce mécanisme dans `FrappeInsights.node.ts` :
+
+| Bloc | Rôle |
+| --- | --- |
+| `searchIn` | recherche paginée dans un doctype, filtrage côté Frappe |
+| `searchDocuments` | le champ **Document** ; résout le doctype depuis le paramètre `resource` |
+| `linkSearch(doctype, titleField?)` | fabrique une recherche pour un champ Link |
+| `unwrapResourceLocators` | déballe les locators d'une collection avant l'envoi |
+
+**Ces blocs sont identiques au caractère près dans les six packages applicatifs**, au même
+titre que le transport (règle n°0) : une correction ici se reporte partout.
+
+Ce package n'a **pas** de `linkOptions`, et c'est délibéré : ses deux seules cibles Link,
+`Insights Query v3` et `Insights Workbook`, sont alimentées par l'utilisateur. Aucun doctype
+de configuration à lister, donc aucune liste déroulante.
+
+### À ne pas casser
+
+- **`documentId` est un `resourceLocator`.** Le lire sans `{ extractValue: true }` renvoie
+  `{ __rl, mode, value }` et Frappe reçoit `[object Object]` dans l'URL. Même chose pour tout
+  champ Link exposé au premier niveau.
+- **Les locators d'une collection ne sont pas déballés par n8n.**
+  `getNodeParameter('additionalFields', i)` rend les objets bruts : passer par
+  `unwrapResourceLocators` avant de construire le corps. n8n ne déballe que si l'on adresse le
+  paramètre par son chemin exact, ce qui imposerait un appel par champ.
+- **Une méthode `listSearch` ignore quel champ l'a appelée.** D'où une méthode liée par doctype
+  cible, produite par la fabrique — et non une méthode générique.
+
+### Choisir entre recherche et liste déroulante
+
+Le critère est la **nature** du doctype, pas son nombre de lignes actuel : `Address` ou
+`Project` peuvent être vides sur un site de test et sans limite en production.
+
+- **Recherche** pour ce que l'activité alimente : personnes, documents transactionnels, et les
+  listes ISO volumineuses (`Country`, 250 lignes).
+- **Liste déroulante** pour ce qu'un administrateur maintient. `Currency` y entre grâce au
+  filtre `enabled = 1`, qui ramène ~150 lignes à une poignée.
+
+### Champ titre : se lire, jamais se deviner
+
+Lire **`title_field` et `autoname`** dans `/api/resource/DocType/<nom>` avant de renseigner
+`TITLE_FIELD_BY_RESOURCE` ou l'argument `titleField`. Quand l'`autoname` est `field:x` ou
+`format:{####} {title}`, le `name` porte déjà le libellé et en ajouter un le répète
+(« 0002 Introduction — Introduction »).
+
+Les deux fabriques retombent sur `name` seul si Frappe refuse le champ, donc **une erreur ici
+ne casse rien et ne se voit pas** : elle se contrôle sur des données réelles, pas au jugé.
+
+### Détecter un champ Link
+
+Se fier à ce que le doctype **déclare**, pas au libellé des descriptions du nœud. Un comptage
+fondé sur la mention « Link to » avait manqué 16 champs sur le seul package HRMS. Penser aussi
+aux **Custom Fields** : ils n'apparaissent pas dans `DocType.fields` et se lisent séparément
+via le doctype `Custom Field`.
+
+### `REQUIRED_ON_CREATE` a une source unique
+
+La liste des champs exposés au premier niveau à la création est déclarée **dans le fichier de
+description** de la ressource et exportée (`WORKBOOK_REQUIRED_ON_CREATE`, etc.) ; le nœud
+l'importe pour composer son `Record`. Ne pas la réécrire dans le nœud : les deux copies
+existaient et avaient déjà divergé.
+
+### Contrainte ESLint sur les listes dynamiques
+
+Un champ `type: 'options'` alimenté par `loadOptionsMethod` impose un `displayName` suffixé
+« Name or ID » et une `description` strictement égale au texte « Choose from the list, or
+specify an ID using an expression ». Aucune précision métier ne peut y rester : sa place est
+dans le README.
 
 ## Documentation
 

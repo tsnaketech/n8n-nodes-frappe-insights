@@ -206,7 +206,13 @@ const dataSourceFields: INodeProperties[] = [
 	},
 ];
 
-const REQUIRED_ON_CREATE = ['title', 'type'];
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const DATA_SOURCE_REQUIRED_ON_CREATE = ['title', 'type'];
 
 /**
  * `is_site_db` and `is_frappe_db` are read-only: Insights sets them on the built-in source
@@ -242,6 +248,7 @@ export const dataSourceDescription: INodeProperties[] = [
 		'dataSource',
 		'The Frappe record\'s "name" field, derived from the title, e.g. prod_sales.',
 		['get', 'update', 'delete', 'testConnection'],
+		'prod_sales',
 	),
 	{
 		displayName: 'Additional Fields',
@@ -250,7 +257,7 @@ export const dataSourceDescription: INodeProperties[] = [
 		placeholder: 'Add field',
 		default: {},
 		displayOptions: { show: { resource: ['dataSource'], operation: ['create'] } },
-		options: omitFields(dataSourceFields, REQUIRED_ON_CREATE),
+		options: omitFields(dataSourceFields, DATA_SOURCE_REQUIRED_ON_CREATE),
 	},
 	{
 		displayName: 'Update Fields',

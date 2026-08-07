@@ -94,7 +94,13 @@ const alertFields: INodeProperties[] = [
 	},
 ];
 
-const REQUIRED_ON_CREATE = ['title', 'query', 'condition'];
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const ALERT_REQUIRED_ON_CREATE = ['title', 'query', 'condition'];
 
 /**
  * `Insights Alert` watches a query and notifies when its condition holds.
@@ -120,12 +126,30 @@ export const alertDescription: INodeProperties[] = [
 	{
 		displayName: 'Query',
 		name: 'query',
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		required: true,
 		displayOptions: { show: { resource: ['alert'], operation: ['create'] } },
 		description:
 			'The watched Insights Query v3 record\'s "name" field. Deleting the query deletes its alerts.',
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchInsightsQuery',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: 'abc123de45',
+			},
+		],
 	},
 	{
 		displayName: 'Condition',
@@ -139,7 +163,12 @@ export const alertDescription: INodeProperties[] = [
 		description:
 			'Python expression evaluated against the query result. The alert fires when it is true.',
 	},
-	documentIdField('alert', 'The Frappe record\'s "name" field for this alert'),
+	documentIdField(
+		'alert',
+		'The Frappe record\'s "name" field for this alert',
+		undefined,
+		'abc123de45',
+	),
 	{
 		displayName: 'Additional Fields',
 		name: 'additionalFields',
@@ -147,7 +176,7 @@ export const alertDescription: INodeProperties[] = [
 		placeholder: 'Add field',
 		default: {},
 		displayOptions: { show: { resource: ['alert'], operation: ['create'] } },
-		options: omitFields(alertFields, REQUIRED_ON_CREATE),
+		options: omitFields(alertFields, ALERT_REQUIRED_ON_CREATE),
 	},
 	{
 		displayName: 'Update Fields',

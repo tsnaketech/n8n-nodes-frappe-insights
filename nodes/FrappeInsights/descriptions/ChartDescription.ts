@@ -39,9 +39,27 @@ const chartFields: INodeProperties[] = [
 	{
 		displayName: 'Query',
 		name: 'query',
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		description: 'The "name" field of the Insights Query v3 record feeding the chart',
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchInsightsQuery',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: 'abc123de45',
+			},
+		],
 	},
 	{
 		displayName: 'Sort Order',
@@ -59,7 +77,13 @@ const chartFields: INodeProperties[] = [
 	},
 ];
 
-const REQUIRED_ON_CREATE = ['workbook'];
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const CHART_REQUIRED_ON_CREATE = ['workbook'];
 
 /**
  * `Insights Chart v3` is a presentation layer over a query: it holds no data of its own.
@@ -73,15 +97,35 @@ export const chartDescription: INodeProperties[] = [
 	{
 		displayName: 'Workbook',
 		name: 'workbook',
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		required: true,
 		displayOptions: { show: { resource: ['chart'], operation: ['create'] } },
 		description: 'The "name" field of the workbook holding the chart, e.g. 12',
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchInsightsWorkbook',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: '12',
+			},
+		],
 	},
 	documentIdField(
 		'chart',
 		'The Frappe record\'s "name" field, e.g. abc123de45. Visible in the URL of the Insights workbook.',
+		undefined,
+		'abc123de45',
 	),
 	{
 		displayName: 'Additional Fields',
@@ -90,7 +134,7 @@ export const chartDescription: INodeProperties[] = [
 		placeholder: 'Add field',
 		default: {},
 		displayOptions: { show: { resource: ['chart'], operation: ['create'] } },
-		options: omitFields(chartFields, REQUIRED_ON_CREATE),
+		options: omitFields(chartFields, CHART_REQUIRED_ON_CREATE),
 	},
 	{
 		displayName: 'Update Fields',

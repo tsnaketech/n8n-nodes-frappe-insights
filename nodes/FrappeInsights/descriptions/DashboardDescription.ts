@@ -50,7 +50,13 @@ const dashboardFields: INodeProperties[] = [
 	},
 ];
 
-const REQUIRED_ON_CREATE = ['workbook'];
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const DASHBOARD_REQUIRED_ON_CREATE = ['workbook'];
 
 /**
  * `Insights Dashboard v3` stores its whole layout in the `items` JSON field rather than in
@@ -62,15 +68,35 @@ export const dashboardDescription: INodeProperties[] = [
 	{
 		displayName: 'Workbook',
 		name: 'workbook',
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		required: true,
 		displayOptions: { show: { resource: ['dashboard'], operation: ['create'] } },
 		description: 'The "name" field of the workbook holding the dashboard, e.g. 12',
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchInsightsWorkbook',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: '12',
+			},
+		],
 	},
 	documentIdField(
 		'dashboard',
 		'The Frappe record\'s "name" field, e.g. abc123de45. Visible in the URL of the Insights workbook.',
+		undefined,
+		'abc123de45',
 	),
 	{
 		displayName: 'Additional Fields',
@@ -79,7 +105,7 @@ export const dashboardDescription: INodeProperties[] = [
 		placeholder: 'Add field',
 		default: {},
 		displayOptions: { show: { resource: ['dashboard'], operation: ['create'] } },
-		options: omitFields(dashboardFields, REQUIRED_ON_CREATE),
+		options: omitFields(dashboardFields, DASHBOARD_REQUIRED_ON_CREATE),
 	},
 	{
 		displayName: 'Update Fields',

@@ -13,6 +13,14 @@ import { documentIdField, getManyFields, operationsFor } from './CommonDescripti
  * managed from the Insights UI, or with an HTTP Request node against the same document if
  * a workflow really has to.
  */
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const TEAM_REQUIRED_ON_CREATE = ['team_name'];
+
 export const teamDescription: INodeProperties[] = [
 	operationsFor('team', 'team'),
 	{
@@ -28,6 +36,8 @@ export const teamDescription: INodeProperties[] = [
 	documentIdField(
 		'team',
 		'The Frappe record\'s "name" field, which is the team name itself.',
+		undefined,
+		'Admin',
 	),
 	{
 		displayName: 'Update Fields',

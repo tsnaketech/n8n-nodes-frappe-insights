@@ -54,15 +54,15 @@ const SITE_URL_EXPRESSION =
  * Generic Frappe credential.
  *
  * Deliberately free of any product-specific notion: it targets a Frappe *site*, not an
- * application. The Frappe CRM, Helpdesk, HRMS, Insights, Learning and Lending nodes all
- * declare `{ name: 'frappeApi', required: true }` and share the same credential instance.
- * See docs/CREDENTIALS.md.
+ * application. The generic Frappe node and the CRM, Helpdesk, HRMS, Insights, Learning and
+ * Lending nodes all declare `{ name: 'frappeApi', required: true }` and share the same
+ * credential instance. See docs/CREDENTIALS.md.
  *
  * The internal name `frappeApi` and the field names are identical to the ones shipped by the
- * `n8n-nodes-frappe-crm`, `-helpdesk`, `-hrms`, `-insights`, `-learning` and `-lending`
+ * `n8n-nodes-frappe`, `-crm`, `-helpdesk`, `-hrms`, `-insights`, `-learning` and `-lending`
  * packages, on purpose: a user running several of them sees a single "Frappe API" credential
- * type and configures their site once. This whole file is duplicated verbatim across the six
- * packages — any change here has to be mirrored in all of them.
+ * type and configures their site once. This whole file is duplicated verbatim across the
+ * seven packages — any change here has to be mirrored in all of them.
  */
 export class FrappeApi implements ICredentialType {
 	name = 'frappeApi';

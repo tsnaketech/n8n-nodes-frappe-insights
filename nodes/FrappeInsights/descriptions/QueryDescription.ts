@@ -1,6 +1,11 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { documentIdField, getManyFields, omitFields, queryOperationsFor } from './CommonDescription';
+import {
+	documentIdField,
+	getManyFields,
+	omitFields,
+	queryOperationsFor,
+} from './CommonDescription';
 
 /** `Insights Query v3` fields offered on create as well as update. */
 const queryFields: INodeProperties[] = [
@@ -65,7 +70,13 @@ const queryFields: INodeProperties[] = [
 	},
 ];
 
-const REQUIRED_ON_CREATE = ['workbook'];
+/**
+ * Fields exposed at the top level on create, outside the collection.
+ *
+ * The node imports this list to know which parameters to read there, so the fields
+ * drawn here and the fields sent cannot drift apart.
+ */
+export const QUERY_REQUIRED_ON_CREATE = ['workbook'];
 
 /**
  * `Insights Query v3` is the only resource that does something other than CRUD: `execute`
@@ -73,21 +84,40 @@ const REQUIRED_ON_CREATE = ['workbook'];
  * tool. Both extra operations are document methods, reached through `frappeRunDocMethod`.
  */
 export const queryDescription: INodeProperties[] = [
-	queryOperationsFor('query', 'query'),
+	queryOperationsFor('query', 'query', 'queries'),
 	{
 		displayName: 'Workbook',
 		name: 'workbook',
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		required: true,
 		displayOptions: { show: { resource: ['query'], operation: ['create'] } },
 		description:
 			'The "name" field of the workbook holding the query, e.g. 12. The doctype declares it mandatory: a query does not live outside a workbook.',
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchInsightsWorkbook',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: '12',
+			},
+		],
 	},
 	documentIdField(
 		'query',
 		'The Frappe record\'s "name" field, e.g. abc123de45. Visible in the URL of the Insights workbook.',
 		['get', 'update', 'delete', 'execute', 'getCount'],
+		'abc123de45',
 	),
 	{
 		displayName: 'Additional Fields',
@@ -96,7 +126,7 @@ export const queryDescription: INodeProperties[] = [
 		placeholder: 'Add field',
 		default: {},
 		displayOptions: { show: { resource: ['query'], operation: ['create'] } },
-		options: omitFields(queryFields, REQUIRED_ON_CREATE),
+		options: omitFields(queryFields, QUERY_REQUIRED_ON_CREATE),
 	},
 	{
 		displayName: 'Update Fields',
@@ -129,8 +159,7 @@ export const queryDescription: INodeProperties[] = [
 				name: 'adhoc_filters',
 				type: 'json',
 				default: '',
-				placeholder:
-					'[{"column": {"column_name": "status"}, "operator": "=", "value": "Open"}]',
+				placeholder: '[{"column": {"column_name": "status"}, "operator": "=", "value": "Open"}]',
 				description:
 					'Filters applied to this run only, leaving the saved query untouched. An array of {"column": {"column_name": …}, "operator": …, "value": …} rules combined with AND.',
 			},
@@ -139,8 +168,7 @@ export const queryDescription: INodeProperties[] = [
 				name: 'force',
 				type: 'boolean',
 				default: false,
-				description:
-					'Whether to bypass the result cache, which Insights keeps for ten minutes',
+				description: 'Whether to bypass the result cache, which Insights keeps for ten minutes',
 			},
 			{
 				displayName: 'Page',
@@ -181,8 +209,7 @@ export const queryDescription: INodeProperties[] = [
 				name: 'adhoc_filters',
 				type: 'json',
 				default: '',
-				placeholder:
-					'[{"column": {"column_name": "status"}, "operator": "=", "value": "Open"}]',
+				placeholder: '[{"column": {"column_name": "status"}, "operator": "=", "value": "Open"}]',
 				description:
 					'Filters applied to this count only, leaving the saved query untouched. An array of {"column": {"column_name": …}, "operator": …, "value": …} rules combined with AND.',
 			},
