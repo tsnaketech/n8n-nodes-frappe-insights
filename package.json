@@ -25,13 +25,18 @@
 		"url": "https://github.com/tsnaketech/n8n-nodes-frappe-insights/issues"
 	},
 	"scripts": {
-		"build": "n8n-node build",
-		"build:watch": "tsc --watch",
-		"dev": "n8n-node dev",
-		"lint": "n8n-node lint",
-		"lint:fix": "n8n-node lint --fix",
-		"release": "n8n-node release",
-		"prepublishOnly": "n8n-node prerelease"
+		"clean": "rimraf dist",
+		"build": "tsc && gulp build:icons",
+		"rebuild": "npm run clean && npm run build",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials package.json gulpfile.js --write",
+		"format:check": "prettier nodes credentials package.json gulpfile.js --check",
+		"lint": "eslint nodes credentials package.json ",
+		"lint:fix": "eslint nodes credentials package.json --fix",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"ci": "npm run format:check && npm run lint && npm run test",
+		"prepack": "npm run rebuild"
 	},
 	"files": [
 		"dist"
