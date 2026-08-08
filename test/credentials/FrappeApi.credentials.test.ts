@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { FrappeApi } from './FrappeApi.credentials';
+import { FrappeApi } from '../../credentials/FrappeApi.credentials';
 
 describe('FrappeApi credential', () => {
 	it('defines the shared Frappe API credential contract', () => {
